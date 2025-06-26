@@ -131,8 +131,28 @@ func convertHTMLToPython(html string) string {
 			for _, pyLine := range pyLines {
 				trimmedLine := strings.TrimSpace(pyLine)
 
-				if strings.Contains(trimmedLine, "for ") && strings.Contains(trimmedLine, ":") {
-					// This is a loop start - add the line and increase indentation
+				if (strings.Contains(trimmedLine, "for ") && strings.Contains(trimmedLine, ":")) ||
+					(strings.Contains(trimmedLine, "if ") && strings.Contains(trimmedLine, ":")) ||
+					(strings.Contains(trimmedLine, "while ") && strings.Contains(trimmedLine, ":")) ||
+					(strings.Contains(trimmedLine, "def ") && strings.Contains(trimmedLine, ":")) ||
+					(strings.Contains(trimmedLine, "class ") && strings.Contains(trimmedLine, ":")) {
+					// This is a block start (for, if, while, def, class) - add the line and increase indentation
+					indentation := strings.Repeat("    ", indentLevel)
+					result.WriteString(indentation + trimmedLine + "\n")
+					indentLevel++
+				} else if strings.HasPrefix(trimmedLine, "elif ") && strings.Contains(trimmedLine, ":") {
+					// This is an elif - decrease indentation, add line, then increase again
+					if indentLevel > 0 {
+						indentLevel--
+					}
+					indentation := strings.Repeat("    ", indentLevel)
+					result.WriteString(indentation + trimmedLine + "\n")
+					indentLevel++
+				} else if strings.HasPrefix(trimmedLine, "else:") {
+					// This is an else - decrease indentation, add line, then increase again
+					if indentLevel > 0 {
+						indentLevel--
+					}
 					indentation := strings.Repeat("    ", indentLevel)
 					result.WriteString(indentation + trimmedLine + "\n")
 					indentLevel++

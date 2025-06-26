@@ -1,0 +1,20 @@
+<py?
+user_logged_in = True
+username = "John"
+guest_access = False
+?>
+<py?
+if user_logged_in:
+?>
+    <h1>Welcome back, <?= username ?>!</h1>
+<py?
+elif guest_access:
+?>
+    <h1>Welcome, Guest!</h1>
+<py?
+else:
+?>
+    <h1>Please log in</h1>
+<py?
+# End
+?>

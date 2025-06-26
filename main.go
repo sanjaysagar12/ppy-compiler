@@ -70,8 +70,9 @@ func convertHTMLToPython(html string) string {
 	pieces := regexp.MustCompile(`(?s)<py\?(.*?)\?>`).Split(html, -1)
 	pythonBlocks := regexp.MustCompile(`(?s)<py\?(.*?)\?>`).FindAllStringSubmatch(html, -1)
 
-	// Track indentation level
+	// Track indentation level and control structure stack
 	indentLevel := 0
+	var controlStack []int // Stack to track indentation levels for control structures
 
 	// Process all HTML pieces
 	for i, piece := range pieces {
@@ -132,34 +133,43 @@ func convertHTMLToPython(html string) string {
 				trimmedLine := strings.TrimSpace(pyLine)
 
 				if (strings.Contains(trimmedLine, "for ") && strings.Contains(trimmedLine, ":")) ||
-					(strings.Contains(trimmedLine, "if ") && strings.Contains(trimmedLine, ":")) ||
 					(strings.Contains(trimmedLine, "while ") && strings.Contains(trimmedLine, ":")) ||
 					(strings.Contains(trimmedLine, "def ") && strings.Contains(trimmedLine, ":")) ||
 					(strings.Contains(trimmedLine, "class ") && strings.Contains(trimmedLine, ":")) {
-					// This is a block start (for, if, while, def, class) - add the line and increase indentation
+					// This is a block start (for, while, def, class) - add the line and increase indentation
+					indentation := strings.Repeat("    ", indentLevel)
+					result.WriteString(indentation + trimmedLine + "\n")
+					indentLevel++
+				} else if strings.Contains(trimmedLine, "if ") && strings.Contains(trimmedLine, ":") && !strings.HasPrefix(trimmedLine, "elif") {
+					// This is an if statement - add to control stack and increase indentation
+					controlStack = append(controlStack, indentLevel)
 					indentation := strings.Repeat("    ", indentLevel)
 					result.WriteString(indentation + trimmedLine + "\n")
 					indentLevel++
 				} else if strings.HasPrefix(trimmedLine, "elif ") && strings.Contains(trimmedLine, ":") {
-					// This is an elif - decrease indentation, add line, then increase again
+					// This is an elif - go back to the if level, decrease current indent first
 					if indentLevel > 0 {
 						indentLevel--
 					}
 					indentation := strings.Repeat("    ", indentLevel)
 					result.WriteString(indentation + trimmedLine + "\n")
-					indentLevel++
+					indentLevel++ // Increase for the elif block content
 				} else if strings.HasPrefix(trimmedLine, "else:") {
-					// This is an else - decrease indentation, add line, then increase again
+					// This is an else - go back to the if level, decrease current indent first
 					if indentLevel > 0 {
 						indentLevel--
 					}
 					indentation := strings.Repeat("    ", indentLevel)
 					result.WriteString(indentation + trimmedLine + "\n")
-					indentLevel++
+					indentLevel++ // Increase for the else block content
 				} else if strings.Contains(trimmedLine, "# End") || strings.Contains(trimmedLine, "# end") {
-					// This is an end block - decrease indentation before adding the line
+					// This is an end block - decrease indentation and pop from control stack if needed
 					if indentLevel > 0 {
 						indentLevel--
+					}
+					// If this ends an if/elif/else block, pop from control stack
+					if len(controlStack) > 0 && indentLevel == controlStack[len(controlStack)-1] {
+						controlStack = controlStack[:len(controlStack)-1]
 					}
 					indentation := strings.Repeat("    ", indentLevel)
 					result.WriteString(indentation + trimmedLine + "\n")
